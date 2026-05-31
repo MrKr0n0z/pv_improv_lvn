@@ -619,6 +619,89 @@
   .change-display.positive .ch-value { color: #5dbe8a; }
   .change-display.negative .ch-value { color: #e05a4e; }
 
+  /* ─── PAYMENT METHOD ─────────────────────────── */
+  .payment-method-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 0 13px;
+    margin: 8px 0;
+  }
+
+  .payment-btn {
+    padding: 10px;
+    border: 2px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-dim);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+
+  .payment-btn:hover { border-color: var(--amber-dim); }
+
+  .payment-btn.active {
+    border-color: var(--amber);
+    background: rgba(212, 134, 10, 0.1);
+    color: var(--amber-light);
+  }
+
+  .action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sales-history-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 13px;
+    margin: 8px 0;
+    max-height: 200px;
+  }
+
+  .sh-title {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--amber-dim);
+    padding: 6px 0;
+  }
+
+  .sales-history {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sales-history::-webkit-scrollbar { width: 3px; }
+  .sales-history::-webkit-scrollbar-track { background: transparent; }
+  .sales-history::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sale-entry {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 0.65rem;
+    line-height: 1.4;
+  }
+
+  .sale-entry-items {
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .sale-entry-amount {
+    color: var(--amber);
+    font-weight: 500;
+    text-align: right;
+  }
+
   .action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
   .action-btns .btn { padding: 12px; font-size: 0.75rem; }
@@ -724,6 +807,16 @@
         <div class="sb-value" id="totalCaja">$0</div>
       </div>
 
+      <div class="sales-banner">
+        <div class="sb-label">💵 Efectivo</div>
+        <div class="sb-value" id="totalEfectivo">$0</div>
+      </div>
+
+      <div class="sales-banner">
+        <div class="sb-label">💳 Tarjeta</div>
+        <div class="sb-value" id="totalTarjeta">$0</div>
+      </div>
+
       <div class="totals-grid">
         <div class="label">Subtotal</div>
         <div class="value" id="subtotalVal">$0</div>
@@ -746,6 +839,16 @@
       <div class="change-display" id="changeBox">
         <div class="ch-label">Cambio a devolver</div>
         <div class="ch-value" id="changeVal">—</div>
+      </div>
+
+      <div class="payment-method-selector">
+        <button class="payment-btn active" id="paymentEfectivo" onclick="selectPaymentMethod('efectivo')">💵 Efectivo</button>
+        <button class="payment-btn" id="paymentTarjeta" onclick="selectPaymentMethod('tarjeta')">💳 Tarjeta</button>
+      </div>
+
+      <div class="sales-history-section">
+        <div class="sh-title">Historial del día</div>
+        <div class="sales-history" id="salesHistory"></div>
       </div>
 
       <div class="action-btns">
@@ -798,6 +901,8 @@ let products = [
 let ticket = [];
 let totalSales = 0;
 let txCount = 0;
+let salesHistory = [];
+let paymentMethod = 'efectivo';
 let nextId = 100;
 let activeTab = 'menu';
 let isMobile = () => window.innerWidth < 700;
@@ -809,6 +914,7 @@ function saveData() {
     totalSales,
     txCount,
     nextId,
+    salesHistory,
     fondoCaja: document.getElementById('fondoCaja').value
   };
   localStorage.setItem('posData', JSON.stringify(data));
@@ -823,6 +929,7 @@ function loadData() {
       totalSales = data.totalSales || 0;
       txCount = data.txCount || 0;
       nextId = data.nextId || 100;
+      salesHistory = data.salesHistory || [];
       
       // Restaurar UI
       document.getElementById('totalSales').textContent = `$${totalSales}`;
@@ -830,6 +937,7 @@ function loadData() {
       if (data.fondoCaja) {
         document.getElementById('fondoCaja').value = data.fondoCaja;
       }
+      renderSalesHistory();
     } catch (e) {
       console.error('Error loading data:', e);
     }
@@ -1019,10 +1127,48 @@ function calcChange() {
   updateTotalCaja();
 }
 
+function selectPaymentMethod(method) {
+  paymentMethod = method;
+  const efectivoBtn = document.getElementById('paymentEfectivo');
+  const tarjetaBtn = document.getElementById('paymentTarjeta');
+  
+  if (method === 'efectivo') {
+    efectivoBtn.classList.add('active');
+    tarjetaBtn.classList.remove('active');
+  } else {
+    efectivoBtn.classList.remove('active');
+    tarjetaBtn.classList.add('active');
+  }
+}
+
+function renderSalesHistory() {
+  const historyEl = document.getElementById('salesHistory');
+  if (salesHistory.length === 0) {
+    historyEl.innerHTML = '';
+    return;
+  }
+
+  historyEl.innerHTML = salesHistory.map((sale, idx) => {
+    const methodLabel = sale.method === 'efectivo' ? '💵 Efec.' : '💳 Tarj.';
+    return `
+    <div class="sale-entry">
+      <div class="sale-entry-items">${sale.items.map(item => `${item.name} x${item.qty}`).join(', ')}</div>
+      <div class="sale-entry-amount">${methodLabel} $${sale.amount}</div>
+    </div>
+  `;
+  }).reverse().join('');
+}
+
 function updateTotalCaja() {
   const fondo = parseFloat(document.getElementById('fondoCaja').value) || 0;
-  const totalCaja = fondo + totalSales;
+  // Sumar solo las ventas en efectivo
+  const totalEfectivo = salesHistory.reduce((sum, sale) => sale.method === 'efectivo' ? sum + sale.amount : sum, 0);
+  const totalTarjeta = salesHistory.reduce((sum, sale) => sale.method === 'tarjeta' ? sum + sale.amount : sum, 0);
+  const totalCaja = fondo + totalEfectivo;
+  
   document.getElementById('totalCaja').textContent = `$${totalCaja}`;
+  document.getElementById('totalEfectivo').textContent = `$${totalEfectivo}`;
+  document.getElementById('totalTarjeta').textContent = `$${totalTarjeta}`;
 }
 
 // ─── Confirm sale ──────────────────────────────
@@ -1034,10 +1180,16 @@ function confirmSale() {
 
   totalSales += subtotal;
   txCount++;
+  
+  // Guardar en historial
+  const saleItems = ticket.map(t => ({ name: t.name, qty: t.qty }));
+  salesHistory.push({ items: saleItems, amount: subtotal, method: paymentMethod });
+  
   document.getElementById('totalSales').textContent = `$${totalSales}`;
   document.getElementById('txCount').textContent = `${txCount} transacción${txCount !== 1 ? 'es' : ''}`;
 
   updateTotalCaja();
+  renderSalesHistory();
   clearTicket();
   saveData();
   toast(`✓ Venta de $${subtotal} registrada`);
@@ -1069,10 +1221,11 @@ function addProduct() {
 function closeModal() { document.getElementById('resetModal').classList.remove('open'); }
 
 function resetDay() {
-  totalSales = 0; txCount = 0;
+  totalSales = 0; txCount = 0; salesHistory = [];
   document.getElementById('totalSales').textContent = '$0';
   document.getElementById('txCount').textContent = '0 transacciones';
   updateTotalCaja();
+  renderSalesHistory();
   clearTicket();
   saveData();
   closeModal();
@@ -1097,6 +1250,7 @@ document.getElementById('newName').addEventListener('keydown', e => { if (e.key 
 loadData();
 renderProducts();
 renderTicket();
+renderSalesHistory();
 updateTotalCaja();
 </script>
 </body>

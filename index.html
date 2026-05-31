@@ -735,7 +735,7 @@
       <div class="cash-inputs">
         <div class="input-group">
           <label>Fondo de caja</label>
-          <input type="number" id="fondoCaja" placeholder="0" min="0" inputmode="numeric" oninput="calcChange()">
+          <input type="number" id="fondoCaja" placeholder="0" min="0" inputmode="numeric" oninput="calcChange(); saveData();">
         </div>
         <div class="input-group">
           <label>Pago cliente</label>
@@ -801,6 +801,40 @@ let txCount = 0;
 let nextId = 100;
 let activeTab = 'menu';
 let isMobile = () => window.innerWidth < 700;
+
+// ─── LocalStorage ──────────────────────────────
+function saveData() {
+  const data = {
+    products,
+    totalSales,
+    txCount,
+    nextId,
+    fondoCaja: document.getElementById('fondoCaja').value
+  };
+  localStorage.setItem('posData', JSON.stringify(data));
+}
+
+function loadData() {
+  const saved = localStorage.getItem('posData');
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      products = data.products || products;
+      totalSales = data.totalSales || 0;
+      txCount = data.txCount || 0;
+      nextId = data.nextId || 100;
+      
+      // Restaurar UI
+      document.getElementById('totalSales').textContent = `$${totalSales}`;
+      document.getElementById('txCount').textContent = `${txCount} transacción${txCount !== 1 ? 'es' : ''}`;
+      if (data.fondoCaja) {
+        document.getElementById('fondoCaja').value = data.fondoCaja;
+      }
+    } catch (e) {
+      console.error('Error loading data:', e);
+    }
+  }
+}
 
 // ─── Clock ─────────────────────────────────────
 function updateClock() {
@@ -1005,6 +1039,7 @@ function confirmSale() {
 
   updateTotalCaja();
   clearTicket();
+  saveData();
   toast(`✓ Venta de $${subtotal} registrada`);
 }
 
@@ -1026,6 +1061,7 @@ function addProduct() {
   document.getElementById('newName').value = '';
   document.getElementById('newPrice').value = '';
   renderProducts();
+  saveData();
   toast(`"${name}" agregado al menú`);
 }
 
@@ -1038,6 +1074,7 @@ function resetDay() {
   document.getElementById('txCount').textContent = '0 transacciones';
   updateTotalCaja();
   clearTicket();
+  saveData();
   closeModal();
   toast('Día reiniciado');
 }
@@ -1057,8 +1094,10 @@ document.getElementById('newPrice').addEventListener('keydown', e => { if (e.key
 document.getElementById('newName').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('newPrice').focus(); });
 
 // ─── Init ──────────────────────────────────────
+loadData();
 renderProducts();
 renderTicket();
+updateTotalCaja();
 </script>
 </body>
 </html>

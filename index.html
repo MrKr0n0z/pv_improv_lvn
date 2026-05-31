@@ -683,7 +683,7 @@
 
 <header>
   <div class="header-left">
-    <h1>☕ Café Festival</h1>
+    <h1>☕ La Vieja Napoles</h1>
     <div class="subtitle">Punto de Venta</div>
   </div>
   <div class="header-right">
@@ -717,6 +717,11 @@
           <span id="txCount">0 transacciones</span>
         </div>
         <div class="sb-value" id="totalSales">$0</div>
+      </div>
+
+      <div class="sales-banner">
+        <div class="sb-label">Total de caja</div>
+        <div class="sb-value" id="totalCaja">$0</div>
       </div>
 
       <div class="totals-grid">
@@ -965,17 +970,25 @@ function calcChange() {
   if (!pago || !subtotal) {
     box.className = 'change-display';
     val.textContent = '—';
-    return;
+  } else {
+    const cambio = pago - subtotal;
+    if (cambio >= 0) {
+      box.className = 'change-display positive';
+      val.textContent = `$${cambio.toFixed(0)}`;
+    } else {
+      box.className = 'change-display negative';
+      val.textContent = `Faltan $${Math.abs(cambio).toFixed(0)}`;
+    }
   }
 
-  const cambio = pago - subtotal;
-  if (cambio >= 0) {
-    box.className = 'change-display positive';
-    val.textContent = `$${cambio.toFixed(0)}`;
-  } else {
-    box.className = 'change-display negative';
-    val.textContent = `Faltan $${Math.abs(cambio).toFixed(0)}`;
-  }
+  // Actualizar total de caja (fondo + ventas del día)
+  updateTotalCaja();
+}
+
+function updateTotalCaja() {
+  const fondo = parseFloat(document.getElementById('fondoCaja').value) || 0;
+  const totalCaja = fondo + totalSales;
+  document.getElementById('totalCaja').textContent = `$${totalCaja}`;
 }
 
 // ─── Confirm sale ──────────────────────────────
@@ -990,6 +1003,7 @@ function confirmSale() {
   document.getElementById('totalSales').textContent = `$${totalSales}`;
   document.getElementById('txCount').textContent = `${txCount} transacción${txCount !== 1 ? 'es' : ''}`;
 
+  updateTotalCaja();
   clearTicket();
   toast(`✓ Venta de $${subtotal} registrada`);
 }
@@ -1022,6 +1036,7 @@ function resetDay() {
   totalSales = 0; txCount = 0;
   document.getElementById('totalSales').textContent = '$0';
   document.getElementById('txCount').textContent = '0 transacciones';
+  updateTotalCaja();
   clearTicket();
   closeModal();
   toast('Día reiniciado');
